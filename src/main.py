@@ -20,6 +20,7 @@ from session_manager import SessionManager
 from extractor import ThemeExtractor
 from file_picker import FilePicker
 import json
+import importlib
 try:
     import psutil
 except ImportError:
@@ -153,6 +154,20 @@ def main(stdscr, filepath):
     }
     plugin_manager.load_plugins(plugin_context)
     
+    # Carrega TasmaStore manualmente
+    try:
+        project_root = os.path.dirname(plugins_path)
+        if project_root not in sys.path:
+            sys.path.append(project_root)
+        if 'tasmatore' in sys.modules:
+            import tasmatore
+            importlib.reload(tasmatore)
+        else:
+            import tasmatore
+        tasmatore.register(plugin_context)
+    except Exception as e:
+        status_msg = f"Erro ao carregar TasmaStore: {e}"
+
     last_keypress_time = time.time()
     lint_needed = True
     last_stats_time = 0
