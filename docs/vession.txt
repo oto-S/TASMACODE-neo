@@ -1,5 +1,4 @@
-tasmacode 2026 13/feb/2026
-
+tasmacode®
 
 novidades:
 
@@ -8,7 +7,11 @@ novidades:
 3. janela de versão
 4. melhorias na tasmastore vizuais e de funcionalidades , agora clicado na tecla U vc consegue verificar atualização de alguns plugin
 
+colobaradores:
+
+John Breno SF [criador/DEV-principal]
+brvsouze BRV [programador]
+lucas Carvalho [programador]
 
 versão 
-
 0.1 aplha
