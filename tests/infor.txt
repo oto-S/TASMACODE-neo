@@ -1,0 +1,5 @@
+essa pasta é dedicada a testes  de alterações como realiza analises etc.
+
+1. todo  arquivo de teste deve se ignorado pelo git.
+2. se for compartilha o seu  script de teste coloque em seu proprio perfil
+3. não envie seu script de teste em seus commits
