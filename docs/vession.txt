@@ -6,6 +6,7 @@ novidades:
 1. tasmastore 
 2. correção de erros 
 3. janela de versão
+4. melhorias na tasmastore vizuais e de funcionalidades , agora clicado na tecla U vc consegue verificar atualização de alguns plugin
 
 
 versão 
