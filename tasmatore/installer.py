@@ -11,7 +11,7 @@ class PluginInstaller:
         if not os.path.exists(self.tpm_dir):
             os.makedirs(self.tpm_dir, exist_ok=True)
 
-    def install_from_github(self, url):
+    def install_from_github(self, url, on_progress=None):
         """
         Clona um repositório git para uma pasta temporária ('tpm') e depois o move
         para o diretório final de plugins.
@@ -40,12 +40,25 @@ class PluginInstaller:
 
         try:
             # 1. Clona o repositório na pasta temporária 'tpm'.
-            subprocess.run(
-                ["git", "clone", url, temp_download_path], 
-                check=True, 
+            process = subprocess.Popen(
+                ["git", "clone", "--progress", url, temp_download_path],
                 stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+                encoding='utf-8',
+                errors='replace'
             )
+            
+            # Lê o progresso do stderr (onde o git escreve o status)
+            while True:
+                char = process.stderr.read(1)
+                if char == '' and process.poll() is not None:
+                    break
+                if char != '' and on_progress:
+                    on_progress(char)
+            
+            if process.returncode != 0:
+                raise subprocess.CalledProcessError(process.returncode, process.args)
             
             # 2. Move o plugin da pasta temporária para a pasta final de plugins.
             shutil.move(temp_download_path, final_plugin_path)

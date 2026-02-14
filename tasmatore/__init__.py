@@ -4,6 +4,7 @@ import sys
 import threading
 import time
 import webbrowser
+import re
 
 # Adiciona diretório atual ao path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -52,6 +53,9 @@ class TasmaStorePlugin:
 
         while self.active:
             self.ui.draw(self.plugins, self.selected_idx, self.focus, self.confirm_delete_plugin)
+            
+            if self.ui.is_loading:
+                self.ui.animation_frame += 1
             
             try:
                 key = stdscr.get_wch()
@@ -158,10 +162,26 @@ class TasmaStorePlugin:
 
     def start_install(self, url):
         self.ui.is_loading = True
+        self.ui.progress_percent = 0
+        self.ui.raw_progress_buffer = ""
         self.ui.status_msg = "Clonando repositório... aguarde."
         
+        def on_progress(char):
+            # Acumula caracteres e tenta extrair porcentagem
+            self.ui.raw_progress_buffer += char
+            if char in ('\r', '\n'):
+                line = self.ui.raw_progress_buffer.strip()
+                self.ui.raw_progress_buffer = ""
+                if line:
+                    self.ui.status_msg = line
+                    # Regex para capturar porcentagem do git (ex: 15%)
+                    match = re.search(r'(\d+)%', line)
+                    if match:
+                        try: self.ui.progress_percent = int(match.group(1))
+                        except: pass
+
         def target():
-            success, msg = self.installer.install_from_github(url)
+            success, msg = self.installer.install_from_github(url, on_progress=on_progress)
             self.ui.status_msg = msg
             self.ui.is_loading = False
             if success:

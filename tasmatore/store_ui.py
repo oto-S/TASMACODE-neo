@@ -9,6 +9,9 @@ class StoreUI:
         self.status_msg = ""
         self.is_loading = False
         self.scroll_offset = 0
+        self.progress_percent = 0
+        self.animation_frame = 0
+        self.raw_progress_buffer = ""
 
     def draw(self, plugins=[], selected_idx=0, focus='input', confirm_delete=None):
         self.height, self.width = self.stdscr.getmaxyx()
@@ -131,5 +134,48 @@ class StoreUI:
             win.addstr(cy, cx, msg)
             win.attroff(curses.A_REVERSE | curses.A_BOLD)
 
+        # Popup de Progresso / Loading
+        if self.is_loading:
+            self.draw_progress_popup()
+
         win.addstr(win_h - 2, 2, "Enter: Instalar | u: Atualizar | g: Repo | Del: Remover | Esc: Sair", curses.A_DIM)
         win.refresh()
+
+    def draw_progress_popup(self):
+        h, w = 7, 50
+        y = (self.height - h) // 2
+        x = (self.width - w) // 2
+        
+        popup = curses.newwin(h, w, y, x)
+        popup.box()
+        popup.bkgd(' ', curses.color_pair(5))
+        
+        popup.addstr(1, 2, "Instalando Plugin...", curses.A_BOLD)
+        
+        # Mensagem de Status (ex: Receiving objects: 45%)
+        status_txt = self.status_msg.replace('\r', '').strip()
+        if len(status_txt) > w - 4: status_txt = "..." + status_txt[-(w-7):]
+        popup.addstr(2, 2, status_txt, curses.A_DIM)
+        
+        # Barra de Progresso
+        bar_width = w - 4
+        popup.addstr(4, 2, "░" * bar_width)
+        
+        if self.progress_percent > 0:
+            fill_len = int((self.progress_percent / 100.0) * bar_width)
+            popup.addstr(4, 2, "█" * fill_len, curses.A_REVERSE)
+            popup.addstr(4, 2 + bar_width // 2 - 2, f"{int(self.progress_percent)}%", curses.A_BOLD | curses.A_REVERSE)
+        else:
+            # Animação Indeterminada (Scanner)
+            cycle = bar_width * 2 - 4
+            if cycle < 1: cycle = 1
+            pos = self.animation_frame % cycle
+            if pos >= bar_width - 2: pos = cycle - pos
+            
+            # Desenha bloco móvel
+            for i in range(3):
+                p = pos + i
+                if 0 <= p < bar_width:
+                    popup.addstr(4, 2 + p, "█", curses.A_REVERSE)
+        
+        popup.refresh()
