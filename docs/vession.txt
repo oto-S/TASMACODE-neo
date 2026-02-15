@@ -12,6 +12,7 @@ colobaradores:
 John Breno SF [criador/DEV-principal]
 brvsouze BRV [programador]
 lucas Carvalho [programador]
+Oto S [Programador]
 
 versão 
 0.1 aplha
