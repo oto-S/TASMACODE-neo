@@ -1,5 +1,5 @@
 
-# Tasma Code Editor
+# Kasmocode Editor
 
 <img width="1536" height="1024" alt="17712075122017428159238849490432" src="https://github.com/user-attachments/assets/4318e387-8e84-4343-b629-2899d5f86ed2" />
 
