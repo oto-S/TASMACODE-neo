@@ -1,11 +1,8 @@
 
 # Tasma Code Editor
 
-<div align="center">
-  <img src="midia/VID-20260215-WA0163(1).gif" alt="Logo Tasmacode, Tusmo" width="400">
-  <br>
-  <strong>Logo Tasmacode, Tusmo</strong>
-</div>
+<img width="1536" height="1024" alt="17712075122017428159238849490432" src="https://github.com/user-attachments/assets/4318e387-8e84-4343-b629-2899d5f86ed2" />
+
 
 O Tasma Code Editor é um editor de texto robusto baseado em terminal (TUI), desenvolvido em Python utilizando a biblioteca `curses`. Ele combina a leveza de editores de console com funcionalidades modernas de IDEs.
 
