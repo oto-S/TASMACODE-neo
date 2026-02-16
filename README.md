@@ -51,4 +51,8 @@ https://github.com/user-attachments/assets/edf08a34-43d9-4dcf-a4c2-5aa24bc3e20c
 
 https://github.com/user-attachments/assets/8038a951-90a4-478d-9ab8-a7ef99f0c124
 
+## contato
+
+tasmacode@protonmail.com
+
 ---
