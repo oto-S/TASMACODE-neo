@@ -101,15 +101,15 @@ class UI:
         """Atualiza dimensões se o terminal for redimensionado."""
         self.height, self.width = self.stdscr.getmaxyx()
 
-    def translate_mouse_to_editor(self, mx, my, content_start_y, gutter_width, split_mode, active_split, split_dims):
+    def translate_mouse_to_editor(self, mx, my, content_start_y, gutter_width, split_mode, active_split, split_dims, split_ratio=0.5):
         """Traduz coordenadas de tela (mx, my) para coordenadas do editor."""
         # Determina em qual split o clique ocorreu
         clicked_split = 0
         if split_mode == 1: # Vertical
-            if mx >= split_dims['sep']:
+            if mx > split_dims['sep']: # > porque 'sep' é a barra
                 clicked_split = 1
         elif split_mode == 2: # Horizontal
-            if my >= split_dims['sep']:
+            if my > split_dims['sep']:
                 clicked_split = 1
         
         return clicked_split, my, mx
@@ -299,7 +299,7 @@ class UI:
             except curses.error: pass
             except curses.error: pass
 
-    def draw(self, editors, active_split, split_mode, status_message="", filepaths=None, tab_info=None, 
+    def draw(self, editors, active_split, split_mode, split_ratio=0.5, status_message="", filepaths=None, tab_info=None, 
              sidebar_items=None, sidebar_selection=0, sidebar_focus=False, show_sidebar=False, sidebar_path=".", system_info=""):
         """Renderiza o texto, cursor e barra de status, e abas."""
         self.update_dimensions()
@@ -312,8 +312,7 @@ class UI:
             self.last_sidebar_visible = show_sidebar
             self.last_split_mode = split_mode
 
-        # Draw Global Menu
-        self.global_menu.draw(self.stdscr, self.width)
+        # Global Menu will be drawn last to appear on top
         top_offset = 1
 
         if filepaths is None: filepaths = [""]
@@ -384,7 +383,7 @@ class UI:
         pane2_rect = None
         
         if split_mode == 1: # Vertical
-            mid = available_w // 2
+            mid = int(available_w * split_ratio)
             pane1_rect = [content_start_y, editor_base_x, available_h, mid]
             pane2_rect = [content_start_y, editor_base_x + mid + 1, available_h, available_w - mid - 1]
             # Draw separator
@@ -393,7 +392,7 @@ class UI:
                 except: pass
                 
         elif split_mode == 2: # Horizontal
-            mid = available_h // 2
+            mid = int(available_h * split_ratio)
             pane1_rect = [content_start_y, editor_base_x, mid, available_w]
             pane2_rect = [content_start_y + mid + 1, editor_base_x, available_h - mid - 1, available_w]
             # Draw separator
@@ -420,6 +419,9 @@ class UI:
         active_filepath = filepaths[active_split] if filepaths else ""
         
         self.status_bar.draw(self, active_editor, active_split, system_info, status_message, active_filepath)
+
+        # Draw Global Menu (Last to be on top of everything)
+        self.global_menu.draw(self.stdscr, self.width)
 
         # Posicionar Cursor Físico
         cursor_rect = pane1_rect if active_split == 0 else pane2_rect
