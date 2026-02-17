@@ -178,6 +178,8 @@ class TasmaApp:
         self.current_macro_buffer = []
         self.input_queue = []
         self.dragging_tab_idx = None
+        self.split_ratio = 0.5
+        self.dragging_split = False
         
         self.global_commands = {}
         
@@ -189,6 +191,7 @@ class TasmaApp:
         self.current_process = psutil.Process(os.getpid()) if psutil else None
 
         # Load Plugins
+        self.last_menu_index = -1
         self.load_plugins()
         
         # Register Actions
@@ -948,6 +951,12 @@ class TasmaApp:
 
             self.tab_manager.current_tab_index = self.split_tab_indices[self.active_split]
 
+            # Fix Menu Ghosting: Se o menu mudou de estado, força redesenho do editor abaixo dele
+            if self.ui.global_menu.active_menu_index != self.last_menu_index:
+                for tab in self.tab_manager.open_tabs:
+                    tab['editor'].mark_all_dirty()
+                self.last_menu_index = self.ui.global_menu.active_menu_index
+
             # Prepare drawing
             editors_to_draw = [self.tab_manager.open_tabs[self.split_tab_indices[0]]['editor']]
             filepaths_to_draw = [self.tab_manager.open_tabs[self.split_tab_indices[0]]['filepath']]
@@ -973,7 +982,7 @@ class TasmaApp:
             elif not psutil:
                 self.system_status = "psutil not installed"
 
-            self.ui.draw(editors_to_draw, self.active_split, self.split_mode, self.status_msg, filepaths_to_draw, tab_info,
+            self.ui.draw(editors_to_draw, self.active_split, self.split_mode, self.split_ratio, self.status_msg, filepaths_to_draw, tab_info,
                     self.sidebar_items, self.sidebar_idx, self.sidebar_focus, self.sidebar_visible, self.sidebar_path, self.system_status)
             
             for tab in self.tab_manager.open_tabs:
@@ -999,6 +1008,14 @@ class TasmaApp:
             key_code = key
             if isinstance(key, str):
                 key_code = ord(key)
+
+            # Global Menu Keyboard Handling
+            if self.ui.global_menu.active_menu_index != -1:
+                handled, action = self.ui.global_menu.handle_key(key_code)
+                if handled:
+                    if action:
+                        self.handle_menu_action(action)
+                    continue
                 
             handler_context = {'global_commands': self.global_commands}
             if self.key_handler.handle_key(key_code, handler_context):
@@ -1060,8 +1077,10 @@ class TasmaApp:
                 content_start_y = (1 if tab_info else 0) + 1 # +1 for menu bar
 
                 split_dims = {'sep': 0}
-                if self.split_mode == 1: split_dims['sep'] = (self.ui.width - total_margin) // 2 + total_margin
-                elif self.split_mode == 2: split_dims['sep'] = (self.ui.height - 1 - content_start_y) // 2 + content_start_y
+                available_w = self.ui.width - total_margin
+                available_h = self.ui.height - 1 - content_start_y
+                if self.split_mode == 1: split_dims['sep'] = int(available_w * self.split_ratio) + total_margin
+                elif self.split_mode == 2: split_dims['sep'] = int(available_h * self.split_ratio) + content_start_y
                 
                 # Tab Interaction
                 if my == 1: # Tabs are now at y=1
@@ -1096,24 +1115,45 @@ class TasmaApp:
                                 self.tab_manager.current_tab_index = tab_idx
                     continue
 
+                # Split Dragging Logic
+                if self.split_mode != 0:
+                    is_on_sep = False
+                    if self.split_mode == 1 and mx == split_dims['sep']: is_on_sep = True
+                    elif self.split_mode == 2 and my == split_dims['sep']: is_on_sep = True
+
+                    if bstate & curses.BUTTON1_PRESSED:
+                        if is_on_sep:
+                            self.dragging_split = True
+                    
+                    elif bstate & curses.BUTTON1_RELEASED:
+                        self.dragging_split = False
+                    
+                    if self.dragging_split and (bstate & (curses.BUTTON1_PRESSED | curses.BUTTON1_CLICKED | curses.BUTTON1_RELEASED)):
+                        # Update ratio
+                        if self.split_mode == 1: # Vertical
+                            rel_x = mx - total_margin
+                            self.split_ratio = max(0.1, min(0.9, rel_x / available_w))
+                        elif self.split_mode == 2: # Horizontal
+                            rel_y = my - content_start_y
+                            self.split_ratio = max(0.1, min(0.9, rel_y / available_h))
+                        continue
+
                 # Editor Interaction
-                click_result = self.ui.translate_mouse_to_editor(mx, my, content_start_y, total_margin, self.split_mode, self.active_split, split_dims)
+                click_result = self.ui.translate_mouse_to_editor(mx, my, content_start_y, total_margin, self.split_mode, self.active_split, split_dims, self.split_ratio)
                 
                 if click_result:
                     clicked_split, target_y, target_x = click_result
                     
                     if clicked_split != self.active_split and self.split_mode != 0:
                         self.active_split = clicked_split
-                        continue
+                        # Não continue aqui, permita que o clique posicione o cursor também
 
-                    available_w = self.ui.width - total_margin
-                    available_h = self.ui.height - 1 - content_start_y
                     pane_y, pane_x = content_start_y, total_margin
                     
                     if self.split_mode == 1 and self.active_split == 1:
-                        pane_x += (available_w // 2) + 1
+                        pane_x = split_dims['sep'] + 1
                     elif self.split_mode == 2 and self.active_split == 1:
-                        pane_y += (available_h // 2) + 1
+                        pane_y = split_dims['sep'] + 1
 
                     file_y = (target_y - pane_y) + self.current_editor.scroll_offset_y
                     file_x = (target_x - pane_x - gutter_width) + self.current_editor.scroll_offset_x
