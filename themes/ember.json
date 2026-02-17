@@ -1,0 +1,17 @@
+{
+    "colors": {
+        "keyword": "RED",
+        "string": "YELLOW",
+        "comment": "RED",
+        "active_tab_fg": "WHITE",
+        "active_tab_bg": "RED",
+        "inactive_tab_fg": "RED",
+        "inactive_tab_bg": "BLACK",
+        "number": "YELLOW",
+        "class": "WHITE",
+        "sidebar_fg": "RED",
+        "sidebar_bg": "BLACK",
+        "statusbar_fg": "WHITE",
+        "statusbar_bg": "RED"
+    }
+}

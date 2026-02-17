@@ -1,0 +1,17 @@
+{
+    "colors": {
+        "active_tab_bg": "WHITE",
+        "active_tab_fg": "BLACK",
+        "class": "BLUE",
+        "comment": "BLUE",
+        "inactive_tab_bg": "BLACK",
+        "inactive_tab_fg": "WHITE",
+        "keyword": "WHITE",
+        "number": "CYAN",
+        "sidebar_bg": "BLACK",
+        "sidebar_fg": "WHITE",
+        "statusbar_bg": "WHITE",
+        "statusbar_fg": "BLACK",
+        "string": "CYAN"
+    }
+}

@@ -5,6 +5,7 @@ import os
 import icons
 from status_bar import StatusBar
 from help_window import HelpWindow
+from bar_grobal_menu import GlobalMenuBar
 
 class UI:
     """
@@ -18,6 +19,7 @@ class UI:
         self.right_sidebar_plugin = None # Plugin registrado para a direita
         self.left_sidebar_plugin = None # Plugin registrado para a esquerda
         self.status_bar = StatusBar()
+        self.global_menu = GlobalMenuBar(self)
         
         # Configurações do Curses
         curses.use_default_colors()
@@ -112,9 +114,9 @@ class UI:
         
         return clicked_split, my, mx
 
-    def get_tab_click_index(self, mx, my, tab_info, sidebar_width):
+    def get_tab_click_index(self, mx, my, tab_info, sidebar_width, tab_y=0):
         """Retorna (índice, is_close_button) da aba clicada ou (-1, False)."""
-        if my != 0: return -1, False # Abas estão na linha 0
+        if my != tab_y: return -1, False
         
         current_x = sidebar_width
         for i, tab in enumerate(tab_info):
@@ -207,12 +209,11 @@ class UI:
                 self.stdscr.addstr(y, x, text, attr)
             except curses.error: pass
 
-    def _draw_tabs(self, tab_info):
+    def _draw_tabs(self, tab_info, y=0):
         """Desenha a barra de abas no topo da tela."""
         if not tab_info:
             return
 
-        tab_line_y = 0
         current_x = 0
         for tab in tab_info:
             filename = os.path.basename(tab['filepath']) # Just filename
@@ -223,27 +224,27 @@ class UI:
             icon_color = active_icon_color if tab['is_current'] else curses.color_pair(5) # Inactive usa preto/branco padrão
             
             try:
-                self.stdscr.addstr(tab_line_y, current_x, " ", base_color)
-                self.stdscr.addstr(tab_line_y, current_x + 1, icon, icon_color)
+                self.stdscr.addstr(y, current_x, " ", base_color)
+                self.stdscr.addstr(y, current_x + 1, icon, icon_color)
                 display_name = f" {filename}{'*' if tab['is_modified'] else ''} "
-                self.stdscr.addstr(tab_line_y, current_x + 2, display_name, base_color)
+                self.stdscr.addstr(y, current_x + 2, display_name, base_color)
                 current_x += 2 + len(display_name)
                 
-                self.stdscr.addstr(tab_line_y, current_x, "|", curses.color_pair(5))
+                self.stdscr.addstr(y, current_x, "|", curses.color_pair(5))
                 current_x += len(display_name)
             except curses.error:
                 break # Ran out of screen space
 
         # Fill remaining space on tab line
         try:
-            self.stdscr.addstr(tab_line_y, current_x, " " * (self.width - current_x), curses.color_pair(5))
+            self.stdscr.addstr(y, current_x, " " * (self.width - current_x), curses.color_pair(5))
         except curses.error:
             pass
 
-    def draw_sidebar(self, items, selection_index, focus, width, current_path):
+    def draw_sidebar(self, items, selection_index, focus, width, current_path, start_y=0):
         """Desenha a barra lateral de arquivos."""
         # Fundo da sidebar
-        for y in range(self.height - 1):
+        for y in range(start_y, self.height - 1):
             try:
                 self.stdscr.addstr(y, 0, " " * width, curses.color_pair(5))
                 self.stdscr.addch(y, width, '│')
@@ -251,20 +252,20 @@ class UI:
         
         # Cabeçalho (Path)
         path_str = f" {os.path.basename(os.path.abspath(current_path))}/"
-        self._addstr_clipped(0, 0, path_str, curses.color_pair(5) | curses.A_BOLD, min_x=0)
-        try: self.stdscr.addstr(1, 0, "─" * width)
+        self._addstr_clipped(start_y, 0, path_str, curses.color_pair(5) | curses.A_BOLD, min_x=0)
+        try: self.stdscr.addstr(start_y + 1, 0, "─" * width)
         except curses.error: pass
 
         # Itens
-        start_y = 2
-        max_items = self.height - 3
+        list_start_y = start_y + 2
+        max_items = self.height - list_start_y - 1
         scroll = 0
         if selection_index >= max_items:
             scroll = selection_index - max_items + 1
             
         for i, item in enumerate(items[scroll:]):
             if i >= max_items: break
-            y = start_y + i
+            y = list_start_y + i
             style = curses.color_pair(5)
             if i + scroll == selection_index:
                 style = curses.A_REVERSE | (curses.color_pair(4) if focus else curses.color_pair(5))
@@ -311,15 +312,19 @@ class UI:
             self.last_sidebar_visible = show_sidebar
             self.last_split_mode = split_mode
 
+        # Draw Global Menu
+        self.global_menu.draw(self.stdscr, self.width)
+        top_offset = 1
+
         if filepaths is None: filepaths = [""]
 
         sidebar_width = 0
         if self.left_sidebar_plugin and self.left_sidebar_plugin.is_visible:
             sidebar_width = 25
-            self.left_sidebar_plugin.draw(self.stdscr, 0, 0, self.height - 1, sidebar_width)
+            self.left_sidebar_plugin.draw(self.stdscr, 0, top_offset, self.height - 1, sidebar_width)
         elif show_sidebar:
             sidebar_width = 25
-            self.draw_sidebar(sidebar_items, sidebar_selection, sidebar_focus, sidebar_width - 1, sidebar_path)
+            self.draw_sidebar(sidebar_items, sidebar_selection, sidebar_focus, sidebar_width - 1, sidebar_path, start_y=top_offset)
 
         # Ajuste da área do editor
         editor_base_x = sidebar_width
@@ -343,7 +348,7 @@ class UI:
             # Não, sidebar já foi desenhada. Vamos redesenhar tabs com offset.
             
             # Melhor: Ajustar _draw_tabs para começar em editor_base_x
-            tab_line_y = 0
+            tab_line_y = top_offset
             current_x = editor_base_x
             for tab in tab_info:
                 filename = os.path.basename(tab['filepath'])
@@ -363,11 +368,11 @@ class UI:
             try: self.stdscr.addstr(tab_line_y, current_x, " " * (self.width - current_x), curses.color_pair(5))
             except curses.error: pass
 
-            content_start_y = 1 # Content starts below tabs
-            display_height = self.height - 2 # Account for tabs and status bar
+            content_start_y = top_offset + 1 # Content starts below tabs
+            display_height = self.height - content_start_y - 1 # Account for tabs and status bar
         else:
-            content_start_y = 0
-            display_height = self.height - 1 # Account for status bar only
+            content_start_y = top_offset
+            display_height = self.height - top_offset - 1 # Account for status bar only
 
         # Split Logic
         # split_mode: 0=None, 1=Vertical, 2=Horizontal

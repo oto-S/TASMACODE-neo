@@ -1,0 +1,17 @@
+{
+    "colors": {
+        "keyword": "GREEN",
+        "string": "WHITE",
+        "comment": "YELLOW",
+        "active_tab_fg": "BLACK",
+        "active_tab_bg": "GREEN",
+        "inactive_tab_fg": "GREEN",
+        "inactive_tab_bg": "BLACK",
+        "number": "WHITE",
+        "class": "GREEN",
+        "sidebar_fg": "GREEN",
+        "sidebar_bg": "BLACK",
+        "statusbar_fg": "BLACK",
+        "statusbar_bg": "GREEN"
+    }
+}

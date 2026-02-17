@@ -317,6 +317,47 @@ class TasmaApp:
         kh.register_action("jump_bracket", self.action_jump_bracket)
         kh.register_action("toggle_fold", lambda: self.current_editor.toggle_fold())
 
+    def handle_menu_action(self, action):
+        """Executa ações vindas do menu global."""
+        if not action: return
+        
+        # Arquivos
+        if action == "Novo Arquivo": self.action_sidebar_new_file()
+        elif action == "Nova Pasta": self.action_sidebar_new_dir()
+        elif action == "Abrir Arquivo": self.action_open()
+        elif action == "Abrir Pasta": self.action_open_folder()
+        elif action == "Salvar": self.action_save()
+        elif action == "Fechar Aba": self.action_close_tab()
+        elif action == "Sair": self.action_quit()
+        
+        # Editar
+        elif action == "Desfazer": self.action_undo()
+        elif action == "Refazer": self.action_redo()
+        elif action == "Copiar": self.action_copy()
+        elif action == "Colar": self.action_paste()
+        elif action == "Recortar": self.action_cut()
+        elif action == "Selecionar Tudo": self.action_select_all()
+        
+        # Exibição
+        elif action == "Sidebar": self.action_toggle_sidebar()
+        elif action == "Chat IA": self.action_toggle_right_sidebar()
+        elif action == "Estrutura": self.action_toggle_structure()
+        elif action == "Split Vertical": 
+            self.split_mode = 1
+            self.status_msg = "Split Vertical"
+        elif action == "Split Horizontal": 
+            self.split_mode = 2
+            self.status_msg = "Split Horizontal"
+            
+        # Outros
+        elif action == "Loja (F2)": 
+            if curses.KEY_F2 in self.global_commands: self.global_commands[curses.KEY_F2]()
+        elif action == "Configurações": self.action_open_settings()
+        elif action == "Tema": self.action_import_theme()
+        elif action == "Atalhos": self.action_help()
+        elif action == "Buscar": self.action_find()
+        elif action == "Substituir": self.action_replace()
+
     def action_fuzzy_find(self):
         finder = FuzzyFinderWindow(self.ui, self.project_root, self.tab_manager, self.show_hidden)
         finder.run()
@@ -997,6 +1038,17 @@ class TasmaApp:
                 except curses.error:
                     continue
 
+                # Global Menu Handling
+                event_type = 'move'
+                if bstate & (curses.BUTTON1_PRESSED | curses.BUTTON1_CLICKED | curses.BUTTON1_RELEASED):
+                    event_type = 'click'
+                
+                handled, action = self.ui.global_menu.handle_mouse(mx, my, event_type)
+                if handled:
+                    if action:
+                        self.handle_menu_action(action)
+                    continue
+
                 line_count = len(self.current_editor.lines)
                 gutter_width = len(str(line_count)) + 2
                 sidebar_w = 0
@@ -1005,15 +1057,15 @@ class TasmaApp:
                 elif self.sidebar_visible:
                     sidebar_w = 25
                 total_margin = sidebar_w + gutter_width
-                content_start_y = 1 if tab_info else 0
+                content_start_y = (1 if tab_info else 0) + 1 # +1 for menu bar
 
                 split_dims = {'sep': 0}
                 if self.split_mode == 1: split_dims['sep'] = (self.ui.width - total_margin) // 2 + total_margin
                 elif self.split_mode == 2: split_dims['sep'] = (self.ui.height - 1 - content_start_y) // 2 + content_start_y
                 
                 # Tab Interaction
-                if my == 0:
-                    tab_idx, is_close = self.ui.get_tab_click_index(mx, my, tab_info, sidebar_w)
+                if my == 1: # Tabs are now at y=1
+                    tab_idx, is_close = self.ui.get_tab_click_index(mx, my, tab_info, sidebar_w, tab_y=1)
                     
                     if bstate & curses.BUTTON1_PRESSED:
                         if tab_idx != -1:

@@ -1,0 +1,17 @@
+{
+    "colors": {
+        "keyword": "MAGENTA",
+        "string": "BLUE",
+        "comment": "WHITE",
+        "active_tab_fg": "WHITE",
+        "active_tab_bg": "MAGENTA",
+        "inactive_tab_fg": "MAGENTA",
+        "inactive_tab_bg": "BLACK",
+        "number": "BLUE",
+        "class": "MAGENTA",
+        "sidebar_fg": "MAGENTA",
+        "sidebar_bg": "BLACK",
+        "statusbar_fg": "WHITE",
+        "statusbar_bg": "MAGENTA"
+    }
+}
