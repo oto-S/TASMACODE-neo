@@ -54,10 +54,15 @@ class FuzzyFinderWindow:
 
     def run(self):
         """Main loop for the fuzzy finder window."""
-        while self.active:
-            self.draw()
-            key = self.ui.get_input()
-            self.handle_input(key)
+        original_timeout = self.stdscr.gettimeout()
+        self.stdscr.timeout(-1) # Ensure blocking input
+        try:
+            while self.active:
+                self.draw()
+                key = self.ui.get_input()
+                self.handle_input(key)
+        finally:
+            self.stdscr.timeout(original_timeout)
 
     def draw(self):
         h, w = self.ui.height, self.ui.width
