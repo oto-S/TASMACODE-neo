@@ -330,6 +330,7 @@ class TasmaApp:
         elif action == "Abrir Arquivo": self.action_open()
         elif action == "Abrir Pasta": self.action_open_folder()
         elif action == "Salvar": self.action_save()
+        elif action == "Exportar HTML": self.action_export_html()
         elif action == "Fechar Aba": self.action_close_tab()
         elif action == "Sair": self.action_quit()
         
@@ -340,6 +341,8 @@ class TasmaApp:
         elif action == "Colar": self.action_paste()
         elif action == "Recortar": self.action_cut()
         elif action == "Selecionar Tudo": self.action_select_all()
+        elif action == "Duplicar Linha": self.action_duplicate_line()
+        elif action == "Deletar Linha": self.action_delete_line()
         
         # Exibição
         elif action == "Sidebar": self.action_toggle_sidebar()
@@ -351,15 +354,28 @@ class TasmaApp:
         elif action == "Split Horizontal": 
             self.split_mode = 2
             self.status_msg = "Split Horizontal"
+
+        # Navegação
+        elif action == "Ir para Linha": self.action_goto_line()
+        elif action == "Ir para Símbolo": self.action_goto_symbol()
+        elif action == "Definição": self.action_definition()
+        elif action == "Buscar": self.action_find()
+        elif action == "Substituir": self.action_replace()
+        elif action == "Buscar em Arquivos": 
+            if not self.sidebar_visible:
+                self.action_toggle_sidebar()
+            self.sidebar_focus = True
+            self.input_queue.append(ord('/')) # Simula atalho de busca na sidebar
             
         # Outros
         elif action == "Loja (F2)": 
             if curses.KEY_F2 in self.global_commands: self.global_commands[curses.KEY_F2]()
-        elif action == "Configurações": self.action_open_settings()
-        elif action == "Tema": self.action_import_theme()
-        elif action == "Atalhos": self.action_help()
-        elif action == "Buscar": self.action_find()
-        elif action == "Substituir": self.action_replace()
+        elif action == "Gerenciar":
+            if curses.KEY_F2 in self.global_commands: self.global_commands[curses.KEY_F2]()
+        elif action == "Abrir Configurações": self.action_open_settings()
+        elif action == "Importar Tema": self.action_import_theme()
+        elif action == "Ajuda (F1)": self.action_help()
+        elif action == "Sobre": self.action_about()
 
     def action_fuzzy_find(self):
         finder = FuzzyFinderWindow(self.ui, self.project_root, self.tab_manager, self.show_hidden)
@@ -389,6 +405,22 @@ class TasmaApp:
             self.status_msg = msg
         else:
             self.status_msg = "Importação cancelada."
+
+    def action_about(self):
+        h, w = 12, 50
+        y, x = (self.ui.height - h) // 2, (self.ui.width - w) // 2
+        win = curses.newwin(h, w, y, x)
+        win.box()
+        win.bkgd(' ', curses.color_pair(5))
+        win.addstr(1, 2, "Sobre TasmaCode", curses.A_BOLD)
+        win.addstr(3, 2, "Editor de Texto TUI em Python")
+        win.addstr(4, 2, "Versão: 0.2 Alpha")
+        win.addstr(5, 2, "Criado por: John Breno")
+        win.addstr(7, 2, "Licença MIT")
+        win.addstr(9, 2, "Pressione qualquer tecla para fechar...", curses.A_DIM)
+        win.refresh()
+        win.getch()
+        self.stdscr.clear()
 
     def action_toggle_structure(self):
         if self.ui.left_sidebar_plugin:

@@ -312,8 +312,7 @@ class UI:
             self.last_sidebar_visible = show_sidebar
             self.last_split_mode = split_mode
 
-        # Draw Global Menu
-        self.global_menu.draw(self.stdscr, self.width)
+        # Global Menu will be drawn last to appear on top
         top_offset = 1
 
         if filepaths is None: filepaths = [""]
@@ -420,6 +419,9 @@ class UI:
         active_filepath = filepaths[active_split] if filepaths else ""
         
         self.status_bar.draw(self, active_editor, active_split, system_info, status_message, active_filepath)
+
+        # Draw Global Menu (Last to be on top of everything)
+        self.global_menu.draw(self.stdscr, self.width)
 
         # Posicionar Cursor Físico
         cursor_rect = pane1_rect if active_split == 0 else pane2_rect

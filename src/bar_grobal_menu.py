@@ -6,19 +6,20 @@ class GlobalMenuBar:
         self.menus = [
             {"label": "Arquivos", "options": [
                 {"label": "Novo...", "submenu": ["Novo Arquivo", "Nova Pasta"]},
-                "Abrir Arquivo", "Abrir Pasta", "Salvar", "Fechar Aba", "Sair"
+                "Abrir Arquivo", "Abrir Pasta", "Salvar", "Exportar HTML", "Fechar Aba", "Sair"
             ]},
-            {"label": "Editar", "options": ["Desfazer", "Refazer", "Copiar", "Colar", "Recortar", "Selecionar Tudo"]},
+            {"label": "Editar", "options": ["Desfazer", "Refazer", "Copiar", "Colar", "Recortar", "Selecionar Tudo", "Duplicar Linha", "Deletar Linha"]},
             {"label": "Exibição", "options": ["Sidebar", "Chat IA", "Estrutura", "Split Vertical", "Split Horizontal"]},
+            {"label": "Navegação", "options": ["Ir para Linha", "Ir para Símbolo", "Definição", "Buscar", "Substituir", "Buscar em Arquivos"]},
             {"label": "Plugins", "options": ["Loja (F2)", "Gerenciar"]},
-            {"label": "Configs", "options": ["Configurações", "Tema"]},
-            {"label": "Ajuda", "options": ["Atalhos", "Sobre"]},
-            {"label": "Pesquisa", "options": ["Buscar", "Substituir", "Buscar em Arquivos"]}
+            {"label": "Configurações", "options": ["Abrir Configurações"]},
+            {"label": "Ajuda", "options": ["Ajuda (F1)", "Sobre"]}
         ]
         self.active_menu_index = -1
         self.selected_option_index = -1
-        self.active_submenu_index = -1
+        self.selected_submenu_index = -1
         self.rects = []
+        self.focus_on_submenu = False
 
     def draw(self, stdscr, width):
         # Draw bar background
@@ -92,7 +93,7 @@ class GlobalMenuBar:
         for i, option in enumerate(options):
             style = curses.color_pair(5) | curses.A_REVERSE
             # Simples highlight no hover do submenu (pode ser melhorado com active_submenu_index)
-            if i == self.active_submenu_index:
+            if i == self.selected_submenu_index:
                 style = curses.color_pair(4) | curses.A_BOLD | curses.A_REVERSE
             try:
                 stdscr.addstr(y + i, x, f" {option} ".ljust(max_len), style)
@@ -108,12 +109,16 @@ class GlobalMenuBar:
                             self.active_menu_index = -1 # Toggle Close
                         else:
                             self.active_menu_index = i # Switch/Open
-                            self.selected_option_index = -1
-                            self.active_submenu_index = -1
+                        self.selected_option_index = -1
+                        self.selected_submenu_index = -1
+                        self.focus_on_submenu = False
                         return True, None
                 # Clicked on top bar but not on a menu -> Close
                 if self.active_menu_index != -1:
                     self.active_menu_index = -1
+                    self.selected_option_index = -1
+                    self.selected_submenu_index = -1
+                    self.focus_on_submenu = False
                     return True, None
             
             elif event_type == 'move':
@@ -125,7 +130,8 @@ class GlobalMenuBar:
                                 # Fecha o anterior e abre o novo (comportamento de deslizar)
                                 self.active_menu_index = i
                                 self.selected_option_index = -1
-                                self.active_submenu_index = -1
+                                self.selected_submenu_index = -1
+                                self.focus_on_submenu = False
                                 return True, None
             return False, None
 
@@ -147,7 +153,8 @@ class GlobalMenuBar:
                 if event_type == 'move':
                     if self.selected_option_index != option_idx:
                         self.selected_option_index = option_idx
-                        self.active_submenu_index = -1 # Reset submenu selection when changing main item
+                        self.selected_submenu_index = -1 # Reset submenu selection when changing main item
+                        self.focus_on_submenu = False
                         return True, None
                 elif event_type == 'click':
                     selected = options[option_idx]
@@ -155,6 +162,9 @@ class GlobalMenuBar:
                         return True, None # Clicked on submenu parent, do nothing (wait for submenu click)
                     else:
                         self.active_menu_index = -1 # Close on action
+                        self.selected_option_index = -1
+                        self.selected_submenu_index = -1
+                        self.focus_on_submenu = False
                         return True, selected
             
             # Check if inside Submenu (if open)
@@ -169,23 +179,31 @@ class GlobalMenuBar:
                     if sub_y <= my < sub_y + len(sub_options) and sub_x <= mx < sub_x + sub_w:
                         sub_idx = my - sub_y
                         if event_type == 'move':
-                            if self.active_submenu_index != sub_idx:
-                                self.active_submenu_index = sub_idx
+                            if self.selected_submenu_index != sub_idx:
+                                self.selected_submenu_index = sub_idx
+                                self.focus_on_submenu = True
                                 return True, None
                         elif event_type == 'click':
                             self.active_menu_index = -1
+                            self.selected_option_index = -1
+                            self.selected_submenu_index = -1
+                            self.focus_on_submenu = False
                             return True, sub_options[sub_idx]
                     else:
                         # Click outside closes menu
                         if event_type == 'click':
                             self.active_menu_index = -1
                             self.selected_option_index = -1
+                            self.selected_submenu_index = -1
+                            self.focus_on_submenu = False
                             return True, None
             else:
                 # Click outside closes menu
                 if event_type == 'click':
                     self.active_menu_index = -1
                     self.selected_option_index = -1
+                    self.selected_submenu_index = -1
+                    self.focus_on_submenu = False
                     return True, None
             
             
@@ -194,29 +212,72 @@ class GlobalMenuBar:
     def handle_key(self, key):
         if self.active_menu_index == -1: return False, None
 
-        if key == curses.KEY_LEFT:
+        # --- SUBMENU NAVIGATION ---
+        if self.focus_on_submenu:
+            current_option = self.menus[self.active_menu_index]['options'][self.selected_option_index]
+            submenu_options = current_option.get('submenu', [])
+            if not submenu_options: # Should not happen if focus_on_submenu is true
+                self.focus_on_submenu = False
+                return True, None
+
+            if key == curses.KEY_UP:
+                self.selected_submenu_index = (self.selected_submenu_index - 1) % len(submenu_options)
+                return True, None
+            elif key == curses.KEY_DOWN:
+                self.selected_submenu_index = (self.selected_submenu_index + 1) % len(submenu_options)
+                return True, None
+            elif key == curses.KEY_LEFT:
+                self.focus_on_submenu = False
+                self.selected_submenu_index = -1
+                return True, None
+            elif key in (10, 13): # Enter
+                if self.selected_submenu_index != -1:
+                    action = submenu_options[self.selected_submenu_index]
+                    self.active_menu_index = -1; self.selected_option_index = -1; self.focus_on_submenu = False; self.selected_submenu_index = -1
+                    return True, action
+            elif key == 27: # Esc
+                self.focus_on_submenu = False
+                self.selected_submenu_index = -1
+                return True, None
+            return True # Consume other keys
+
+        # --- MAIN DROPDOWN / TOP-LEVEL NAVIGATION ---
+        options = self.menus[self.active_menu_index]['options']
+        
+        if key == curses.KEY_UP:
+            if self.selected_option_index == -1: self.selected_option_index = len(options)
+            self.selected_option_index = (self.selected_option_index - 1) % len(options)
+            return True, None
+        elif key == curses.KEY_DOWN:
+            self.selected_option_index = (self.selected_option_index + 1) % len(options)
+            return True, None
+        elif key == curses.KEY_LEFT:
             self.active_menu_index = (self.active_menu_index - 1) % len(self.menus)
             self.selected_option_index = -1
             return True, None
         elif key == curses.KEY_RIGHT:
+            if self.selected_option_index != -1:
+                option = options[self.selected_option_index]
+                if isinstance(option, dict) and 'submenu' in option:
+                    self.focus_on_submenu = True
+                    self.selected_submenu_index = 0
+                    return True, None
             self.active_menu_index = (self.active_menu_index + 1) % len(self.menus)
             self.selected_option_index = -1
             return True, None
-        elif key == curses.KEY_UP:
-            options_len = len(self.menus[self.active_menu_index]['options'])
-            self.selected_option_index = (self.selected_option_index - 1) % options_len
-            return True, None
-        elif key == curses.KEY_DOWN:
-            options_len = len(self.menus[self.active_menu_index]['options'])
-            self.selected_option_index = (self.selected_option_index + 1) % options_len
-            return True, None
         elif key in (10, 13): # Enter
             if self.selected_option_index != -1:
-                option = self.menus[self.active_menu_index]['options'][self.selected_option_index]
-                self.active_menu_index = -1 # Close
-                return True, option
+                option = options[self.selected_option_index]
+                if isinstance(option, dict) and 'submenu' in option:
+                    self.focus_on_submenu = True
+                    self.selected_submenu_index = 0
+                    return True, None
+                else:
+                    action = option
+                    self.active_menu_index = -1; self.selected_option_index = -1
+                    return True, action
         elif key == 27: # Esc
-            self.active_menu_index = -1
+            self.active_menu_index = -1; self.selected_option_index = -1
             return True, None
             
         return False, None
