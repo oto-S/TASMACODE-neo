@@ -177,6 +177,7 @@ class TasmaApp:
         self.recording_macro = False
         self.current_macro_buffer = []
         self.input_queue = []
+        self.recent_files = []
         self.dragging_tab_idx = None
         self.split_ratio = 0.5
         self.dragging_split = False
@@ -192,6 +193,8 @@ class TasmaApp:
 
         # Load Plugins
         self.last_menu_index = -1
+        self.recent_files = self.session_manager.load_recent_files()
+        self.ui.global_menu.update_recent_files(self.recent_files)
         self.load_plugins()
         
         # Register Actions
@@ -330,6 +333,7 @@ class TasmaApp:
         elif action == "Abrir Arquivo": self.action_open()
         elif action == "Abrir Pasta": self.action_open_folder()
         elif action == "Salvar": self.action_save()
+        elif action == "Salvar Como...": self.action_save_as()
         elif action == "Exportar HTML": self.action_export_html()
         elif action == "Fechar Aba": self.action_close_tab()
         elif action == "Sair": self.action_quit()
@@ -376,10 +380,29 @@ class TasmaApp:
         elif action == "Importar Tema": self.action_import_theme()
         elif action == "Ajuda (F1)": self.action_help()
         elif action == "Sobre": self.action_about()
+        
+        # Verifica se a ação é um arquivo recente
+        elif isinstance(action, str) and os.path.isfile(action):
+            self.open_file_and_update_recents(action)
+
+    def add_to_recents(self, filepath):
+        """Adiciona um arquivo à lista de recentes, atualiza e salva."""
+        abs_path = os.path.abspath(filepath)
+        if abs_path in self.recent_files:
+            self.recent_files.remove(abs_path)
+        self.recent_files.insert(0, abs_path)
+        
+        MAX_RECENTS = 10
+        self.recent_files = self.recent_files[:MAX_RECENTS]
+        
+        self.session_manager.save_recent_files(self.recent_files)
+        self.ui.global_menu.update_recent_files(self.recent_files)
 
     def action_fuzzy_find(self):
         finder = FuzzyFinderWindow(self.ui, self.project_root, self.tab_manager, self.show_hidden)
-        finder.run()
+        selected_path = finder.run()
+        if selected_path:
+            self.add_to_recents(selected_path)
         self.stdscr.clear()
         self.status_msg = "Fuzzy finder closed."
 
@@ -405,6 +428,30 @@ class TasmaApp:
             self.status_msg = msg
         else:
             self.status_msg = "Importação cancelada."
+
+    def action_save_as(self):
+        """Salva o arquivo atual com um novo nome."""
+        editor = self.current_editor
+        old_path = self.current_filepath
+        if not editor or not old_path:
+            self.status_msg = "Nenhum arquivo ativo para salvar."
+            return
+
+        new_path_str = self.ui.prompt(f"Salvar como (original: {os.path.basename(old_path)}): ")
+        if new_path_str:
+            if not os.path.isabs(new_path_str):
+                base_dir = os.path.dirname(old_path) if os.path.isfile(old_path) else self.project_root
+                new_path = os.path.join(base_dir, new_path_str)
+            else:
+                new_path = new_path_str
+            try:
+                self.file_handler.save_file(new_path, editor.lines)
+                editor.is_modified = False
+                self.tab_manager.rename_open_file(old_path, new_path)
+                self.add_to_recents(new_path)
+                self.status_msg = f"Arquivo salvo como '{os.path.basename(new_path)}'"
+            except Exception as e:
+                self.status_msg = f"Erro ao salvar: {e}"
 
     def action_about(self):
         h, w = 12, 50
@@ -663,14 +710,18 @@ class TasmaApp:
             if self.current_editor.redo(): self.status_msg = "Refeito"
             else: self.status_msg = "Nada para refazer"
 
+    def open_file_and_update_recents(self, filepath):
+        try:
+            self.tab_manager.open_file(filepath)
+            self.status_msg = f"Arquivo '{os.path.basename(filepath)}' aberto."
+            self.add_to_recents(filepath)
+        except Exception as e:
+            self.status_msg = f"Erro ao abrir arquivo: {str(e)}"
+
     def action_open(self):
         filename_to_open = self.ui.prompt("Abrir arquivo: ")
         if filename_to_open:
-            try:
-                self.tab_manager.open_file(filename_to_open)
-                self.status_msg = f"Arquivo '{filename_to_open}' aberto."
-            except Exception as e:
-                self.status_msg = f"Erro ao abrir arquivo: {str(e)}"
+            self.open_file_and_update_recents(filename_to_open)
 
     def action_goto_line(self):
         line_str = self.ui.prompt("Ir para linha: ")
@@ -843,12 +894,8 @@ class TasmaApp:
                     self.sidebar_items = self.file_handler.list_directory(self.sidebar_path, self.show_hidden)
                     self.sidebar_idx = 0
                 else:
-                    try:
-                        self.tab_manager.open_file(full_path)
-                        self.sidebar_focus = False
-                        self.status_msg = f"Aberto: {name}"
-                    except Exception as e:
-                        self.status_msg = f"Erro: {e}"
+                    self.open_file_and_update_recents(full_path)
+                    self.sidebar_focus = False
         else:
             self.current_editor.insert_newline()
 

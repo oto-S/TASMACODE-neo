@@ -1,25 +1,37 @@
 import curses
+import copy
 
 class GlobalMenuBar:
     def __init__(self, ui):
         self.ui = ui
-        self.menus = [
+        self.menus_template = [
             {"label": "Arquivos", "options": [
                 {"label": "Novo...", "submenu": ["Novo Arquivo", "Nova Pasta"]},
-                "Abrir Arquivo", "Abrir Pasta", "Salvar", "Exportar HTML", "Fechar Aba", "Sair"
+                "Abrir Arquivo", "Abrir Pasta", "Salvar", "Salvar Como...", "Exportar HTML", "Fechar Aba", "Sair"
             ]},
             {"label": "Editar", "options": ["Desfazer", "Refazer", "Copiar", "Colar", "Recortar", "Selecionar Tudo", "Duplicar Linha", "Deletar Linha"]},
             {"label": "Exibição", "options": ["Sidebar", "Chat IA", "Estrutura", "Split Vertical", "Split Horizontal"]},
             {"label": "Navegação", "options": ["Ir para Linha", "Ir para Símbolo", "Definição", "Buscar", "Substituir", "Buscar em Arquivos"]},
             {"label": "Plugins", "options": ["Loja (F2)", "Gerenciar"]},
-            {"label": "Configurações", "options": ["Abrir Configurações"]},
+            {"label": "Configurações", "options": ["Abrir Configurações", "Importar Tema"]},
             {"label": "Ajuda", "options": ["Ajuda (F1)", "Sobre"]}
         ]
+        self.menus = copy.deepcopy(self.menus_template)
         self.active_menu_index = -1
         self.selected_option_index = -1
         self.selected_submenu_index = -1
         self.rects = []
         self.focus_on_submenu = False
+
+    def update_recent_files(self, recent_files):
+        """Reconstrói o menu para incluir arquivos recentes."""
+        self.menus = copy.deepcopy(self.menus_template)
+        if recent_files:
+            for menu in self.menus:
+                if menu['label'] == 'Arquivos':
+                    recents_submenu = {"label": "Arquivos Recentes", "submenu": recent_files}
+                    menu['options'].insert(3, recents_submenu)
+                    break
 
     def draw(self, stdscr, width):
         # Draw bar background

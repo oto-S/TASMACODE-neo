@@ -14,6 +14,7 @@ class FuzzyFinderWindow:
         self.selected_idx = 0
         self.scroll_offset = 0
         
+        self.selected_path = None
         self.all_files = self._get_file_list()
         self.filtered_files = self.all_files
 
@@ -60,6 +61,7 @@ class FuzzyFinderWindow:
             key = self.ui.get_input()
             self.handle_input(key)
         # main.py will reset timeout on next iteration
+        return self.selected_path
 
     def draw(self):
         h, w = self.ui.height, self.ui.width
@@ -101,6 +103,7 @@ class FuzzyFinderWindow:
             if self.filtered_files:
                 relative_path = self.filtered_files[self.selected_idx]
                 full_path = os.path.join(self.project_root, relative_path)
+                self.selected_path = full_path
                 self.tab_manager.open_file(full_path)
             self.active = False
         elif key_code in (curses.KEY_BACKSPACE, 127, 8):

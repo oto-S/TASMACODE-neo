@@ -14,39 +14,44 @@ class SessionManager:
         project_root = os.path.dirname(base_dir)
         self.session_path = os.path.join(project_root, session_file)
 
+    def _load_data(self):
+        """Carrega todos os dados do arquivo de sessão."""
+        if not os.path.exists(self.session_path):
+            return {}
+        try:
+            with open(self.session_path, 'r') as f:
+                return json.load(f)
+        except (IOError, json.JSONDecodeError):
+            return {}
+
+    def _save_data(self, data):
+        """Salva todos os dados no arquivo de sessão."""
+        try:
+            with open(self.session_path, 'w') as f:
+                json.dump(data, f, indent=4)
+        except IOError:
+            pass # Falha silenciosa
+
     def save_sidebar_path(self, path):
         """Salva o caminho atual da sidebar no arquivo de sessão."""
-        try:
-            data = {}
-            # Tenta ler dados existentes para não sobrescrever outras configs futuras
-            if os.path.exists(self.session_path):
-                try:
-                    with open(self.session_path, 'r') as f:
-                        data = json.load(f)
-                except json.JSONDecodeError:
-                    pass # Se corrompido, sobrescreve
-            
-            data["last_path"] = os.path.abspath(path)
-            
-            with open(self.session_path, 'w') as f:
-                json.dump(data, f)
-        except IOError:
-            pass # Falha silenciosa em I/O não deve travar o editor
+        data = self._load_data()
+        data["last_path"] = os.path.abspath(path)
+        self._save_data(data)
 
     def load_sidebar_path(self):
         """Carrega o último caminho da sidebar ou retorna a home do usuário."""
-        default_path = os.path.expanduser("~")
-        
-        if not os.path.exists(self.session_path):
-            return default_path
-            
-        try:
-            with open(self.session_path, 'r') as f:
-                data = json.load(f)
-                last_path = data.get("last_path")
-                if last_path and os.path.isdir(last_path):
-                    return last_path
-        except (IOError, json.JSONDecodeError):
-            pass
-            
-        return default_path
+        data = self._load_data()
+        last_path = data.get("last_path")
+        if last_path and os.path.isdir(last_path):
+            return last_path
+        return os.path.expanduser("~")
+
+    def load_recent_files(self):
+        """Carrega a lista de arquivos recentes do arquivo de sessão."""
+        return self._load_data().get("recent_files", [])
+
+    def save_recent_files(self, recent_files_list):
+        """Salva a lista de arquivos recentes no arquivo de sessão."""
+        data = self._load_data()
+        data["recent_files"] = recent_files_list
+        self._save_data(data)
