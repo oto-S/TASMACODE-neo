@@ -3,6 +3,7 @@ import copy
 import re
 import subprocess
 import shutil
+import time
 
 class Editor:
     """
@@ -28,6 +29,8 @@ class Editor:
 
         self.undo_stack = []
         self.redo_stack = []
+        self.last_save_time = 0
+        self.last_save_type = None
         self._save_state() # Save initial state
         self.dirty_lines = set()
         self.needs_full_redraw = True
@@ -84,13 +87,26 @@ class Editor:
         self.dirty_lines.clear()
         self.needs_full_redraw = False
 
-    def _save_state(self):
+    def _save_state(self, op_type=None):
         """Saves the current editor state to the undo stack."""
+        current_time = time.time()
+
+        # Grouping logic for typing/deleting
+        if op_type and self.last_save_type == op_type and op_type in ('insert_char', 'delete_char'):
+            if current_time - self.last_save_time < 1.0:
+                self.last_save_time = current_time
+                return
+
+        # Use shallow copies for performance (strings and ints are immutable)
+        state = (self.lines[:], self.cx, self.cy, self.bookmarks.copy(), self.folds.copy())
+
         # Only save if the current state is different from the last saved state
-        if not self.undo_stack or (self.lines, self.cx, self.cy, self.bookmarks, self.folds) != self.undo_stack[-1]:
-            self.undo_stack.append((copy.deepcopy(self.lines), self.cx, self.cy, copy.deepcopy(self.bookmarks), copy.deepcopy(self.folds)))
+        if not self.undo_stack or self.undo_stack[-1] != state:
+            self.undo_stack.append(state)
             self.redo_stack.clear() # Any new action clears the redo stack
             self.is_modified = True # Any new action means modified
+            self.last_save_type = op_type
+            self.last_save_time = current_time
 
             # Limit undo stack size to prevent excessive memory usage
             MAX_UNDO_STATES = 100
@@ -99,7 +115,12 @@ class Editor:
 
     def _restore_state(self, state_tuple):
         """Restores the editor to a given state."""
-        self.lines, self.cx, self.cy, self.bookmarks, self.folds = copy.deepcopy(state_tuple[0]), state_tuple[1], state_tuple[2], copy.deepcopy(state_tuple[3]), copy.deepcopy(state_tuple[4])
+        self.lines = state_tuple[0][:]
+        self.cx = state_tuple[1]
+        self.cy = state_tuple[2]
+        self.bookmarks = state_tuple[3].copy()
+        self.folds = state_tuple[4].copy()
+
         # Determine if modified by comparing with the very first state in undo_stack
         if self.undo_stack and self.lines == self.undo_stack[0][0]:
             self.is_modified = False
@@ -111,7 +132,7 @@ class Editor:
         """Insere um caractere na posição atual."""
         if self.has_selection():
             self.delete_selected_text()
-        self._save_state() # Save state before modification
+        self._save_state(op_type='insert_char') # Save state before modification
         line = self.lines[self.cy]
         
         pairs = {'(': ')', '[': ']', '{': '}', '"': '"', "'": "'"}
@@ -158,7 +179,7 @@ class Editor:
         if self.cx > 0:
             # Deletar caractere na linha atual
             line = self.lines[self.cy]
-            self._save_state() # Save state before modification
+            self._save_state(op_type='delete_char') # Save state before modification
             self.lines[self.cy] = line[:self.cx - 1] + line[self.cx:]
             self.cx -= 1
             self.mark_dirty(self.cy)
@@ -179,7 +200,7 @@ class Editor:
 
         line = self.lines[self.cy]
         if self.cx < len(line):
-            self._save_state()
+            self._save_state(op_type='delete_char')
             self.lines[self.cy] = line[:self.cx] + line[self.cx + 1:]
             self.mark_dirty(self.cy)
         elif self.cy < len(self.lines) - 1:
